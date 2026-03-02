@@ -15,6 +15,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Explorador do CNO",
   description: "Explorador do CNO",
+  icons: {
+    icon: "/logo_dark.png",
+  },
 };
 
 export default function RootLayout({

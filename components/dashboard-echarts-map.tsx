@@ -126,6 +126,12 @@ export default function DashboardEChartsMap() {
   const chartElRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<EChartsType | null>(null);
 
+  const barChartElRef = useRef<HTMLDivElement | null>(null);
+  const barChartRef = useRef<EChartsType | null>(null);
+
+  const barAreaChartElRef = useRef<HTMLDivElement | null>(null);
+  const barAreaChartRef = useRef<EChartsType | null>(null);
+
   const [meta, setMeta] = useState<MetadataResponse | null>(null);
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [tab, setTab] = useState<MapTab>("obras");
@@ -238,6 +244,70 @@ export default function DashboardEChartsMap() {
       window.removeEventListener("resize", onResize);
       chartRef.current?.dispose?.();
       chartRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    let disposed = false;
+
+    async function initBarChart() {
+      if (!barChartElRef.current) return;
+
+      const echarts = await import("echarts");
+      if (disposed) return;
+
+      if (!barChartRef.current) {
+        barChartRef.current = echarts.init(barChartElRef.current);
+      }
+
+      barChartRef.current.resize();
+    }
+
+    initBarChart();
+
+    function onResize() {
+      barChartRef.current?.resize?.();
+    }
+
+    window.addEventListener("resize", onResize);
+
+    return () => {
+      disposed = true;
+      window.removeEventListener("resize", onResize);
+      barChartRef.current?.dispose?.();
+      barChartRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    let disposed = false;
+
+    async function initBarAreaChart() {
+      if (!barAreaChartElRef.current) return;
+
+      const echarts = await import("echarts");
+      if (disposed) return;
+
+      if (!barAreaChartRef.current) {
+        barAreaChartRef.current = echarts.init(barAreaChartElRef.current);
+      }
+
+      barAreaChartRef.current.resize();
+    }
+
+    initBarAreaChart();
+
+    function onResize() {
+      barAreaChartRef.current?.resize?.();
+    }
+
+    window.addEventListener("resize", onResize);
+
+    return () => {
+      disposed = true;
+      window.removeEventListener("resize", onResize);
+      barAreaChartRef.current?.dispose?.();
+      barAreaChartRef.current = null;
     };
   }, []);
 
@@ -387,6 +457,307 @@ export default function DashboardEChartsMap() {
     };
   }, [geojson, mapData, tab]);
 
+  const barChartRows = useMemo(() => {
+    const rows = mapData?.data ?? [];
+    return [...rows]
+      .filter((r) => typeof r?.name === "string" && Number.isFinite(r?.count))
+      .sort((a, b) => (b.count ?? 0) - (a.count ?? 0));
+  }, [mapData]);
+
+  const barAreaRows = useMemo(() => {
+    const rows = mapData?.data ?? [];
+    return [...rows]
+      .filter(
+        (r) => typeof r?.name === "string" && Number.isFinite(r?.area_total),
+      )
+      .sort((a, b) => (b.area_total ?? 0) - (a.area_total ?? 0));
+  }, [mapData]);
+
+  type TableSortKey = "name" | "count" | "area_total" | "avg_area";
+  const [tableSort, setTableSort] = useState<{ key: TableSortKey; dir: "asc" | "desc" }>({
+    key: "area_total",
+    dir: "desc",
+  });
+
+  const tableBaseRows = useMemo(() => {
+    const rows = mapData?.data ?? [];
+    return [...rows]
+      .filter(
+        (r) =>
+          typeof r?.name === "string" &&
+          Number.isFinite(r?.count) &&
+          Number.isFinite(r?.area_total),
+      );
+  }, [mapData]);
+
+  const tableRows = useMemo(() => {
+    const rows = [...tableBaseRows];
+
+    const dir = tableSort.dir === "asc" ? 1 : -1;
+    if (tableSort.key === "name") {
+      rows.sort((a, b) => dir * a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
+      return rows;
+    }
+
+    if (tableSort.key === "count") {
+      rows.sort((a, b) => dir * ((a.count ?? 0) - (b.count ?? 0)));
+      return rows;
+    }
+
+    if (tableSort.key === "avg_area") {
+      rows.sort((a, b) => {
+        const aCount = Number(a.count ?? 0);
+        const bCount = Number(b.count ?? 0);
+        const aArea = Number(a.area_total ?? 0);
+        const bArea = Number(b.area_total ?? 0);
+
+        const aAvg = aCount > 0 ? aArea / aCount : 0;
+        const bAvg = bCount > 0 ? bArea / bCount : 0;
+
+        return dir * (aAvg - bAvg);
+      });
+      return rows;
+    }
+
+    rows.sort((a, b) => dir * ((a.area_total ?? 0) - (b.area_total ?? 0)));
+    return rows;
+  }, [tableBaseRows, tableSort]);
+
+  function toggleTableSort(key: TableSortKey) {
+    setTableSort((prev) => {
+      if (prev.key === key) {
+        return { key, dir: prev.dir === "asc" ? "desc" : "asc" };
+      }
+      return { key, dir: key === "name" ? "asc" : "desc" };
+    });
+  }
+
+  function sortIndicator(key: TableSortKey) {
+    if (tableSort.key !== key) return "";
+    return tableSort.dir === "asc" ? " ▲" : " ▼";
+  }
+
+  async function downloadMunicipiosExcel() {
+    if (!mapData) return;
+
+    const xlsx = await import("xlsx");
+    const workbook = xlsx.utils.book_new();
+
+    const rows = tableRows.map((r) => {
+      const count = Number(r.count ?? 0);
+      const area = Number(r.area_total ?? 0);
+      const avg = count > 0 ? area / count : null;
+
+      return {
+        "Município": r.name,
+        "Número de obras": count,
+        "Metragem (m²)": Math.round(area),
+        "Metragem média por obra (m²)": avg === null ? null : Math.round(avg),
+      };
+    });
+
+    const worksheet = xlsx.utils.json_to_sheet(rows, {
+      header: [
+        "Município",
+        "Número de obras",
+        "Metragem (m²)",
+        "Metragem média por obra (m²)",
+      ],
+    });
+    worksheet["!cols"] = [{ wch: 28 }, { wch: 16 }, { wch: 18 }, { wch: 24 }];
+
+    xlsx.utils.book_append_sheet(workbook, worksheet, "Municipios");
+
+    const today = new Date().toISOString().slice(0, 10);
+    xlsx.writeFile(workbook, `cno_municipios_${today}.xlsx`, {
+      compression: true,
+    });
+  }
+
+  useEffect(() => {
+    let disposed = false;
+
+    async function updateBarChart() {
+      const el = barChartElRef.current;
+      if (!el) return;
+
+      const echarts = await import("echarts");
+      if (disposed) return;
+
+      if (!barChartRef.current) {
+        barChartRef.current = echarts.init(el);
+      }
+
+      if (isLoading) {
+        barChartRef.current.showLoading?.("default");
+      } else {
+        barChartRef.current.hideLoading?.();
+      }
+
+      const topN = 25;
+      const rows = barChartRows.slice(0, topN);
+      const names = rows.map((r) => r.name);
+      const counts = rows.map((r) => r.count);
+
+      barChartRef.current.setOption(
+        {
+          tooltip: {
+            trigger: "axis",
+            axisPointer: { type: "shadow" },
+            formatter: (params: unknown) => {
+              const items = Array.isArray(params) ? params : [];
+              const first = items[0] as { name?: unknown; value?: unknown };
+              const name = typeof first?.name === "string" ? first.name : "";
+              const value = typeof first?.value === "number" ? first.value : 0;
+              return `${name}: ${formatNumber(value)} obras`;
+            },
+          },
+          grid: {
+            left: 8,
+            right: 12,
+            top: 18,
+            bottom: 8,
+            containLabel: true,
+          },
+          xAxis: {
+            type: "value",
+            axisLabel: {
+              formatter: (v: unknown) => {
+                const n = typeof v === "number" ? v : Number(v);
+                return Number.isFinite(n) ? formatNumber(n) : "";
+              },
+            },
+            splitLine: {
+              lineStyle: { color: "rgba(127,127,127,0.20)" },
+            },
+          },
+          yAxis: {
+            type: "category",
+            data: names,
+            inverse: true,
+            axisLabel: {
+              color: "rgba(255,255,255,0.88)",
+              width: 140,
+              overflow: "truncate",
+            },
+          },
+          series: [
+            {
+              type: "bar",
+              data: counts,
+              itemStyle: {
+                color: "#38bdf8",
+                opacity: 0.9,
+              },
+              barMaxWidth: 18,
+            },
+          ],
+        },
+        { notMerge: true },
+      );
+
+      barChartRef.current.resize();
+    }
+
+    updateBarChart();
+
+    return () => {
+      disposed = true;
+    };
+  }, [barChartRows, isLoading]);
+
+  useEffect(() => {
+    let disposed = false;
+
+    async function updateBarAreaChart() {
+      const el = barAreaChartElRef.current;
+      if (!el) return;
+
+      const echarts = await import("echarts");
+      if (disposed) return;
+
+      if (!barAreaChartRef.current) {
+        barAreaChartRef.current = echarts.init(el);
+      }
+
+      if (isLoading) {
+        barAreaChartRef.current.showLoading?.("default");
+      } else {
+        barAreaChartRef.current.hideLoading?.();
+      }
+
+      const topN = 25;
+      const rows = barAreaRows.slice(0, topN);
+      const names = rows.map((r) => r.name);
+      const areas = rows.map((r) => r.area_total);
+
+      barAreaChartRef.current.setOption(
+        {
+          tooltip: {
+            trigger: "axis",
+            axisPointer: { type: "shadow" },
+            formatter: (params: unknown) => {
+              const items = Array.isArray(params) ? params : [];
+              const first = items[0] as { name?: unknown; value?: unknown };
+              const name = typeof first?.name === "string" ? first.name : "";
+              const value = typeof first?.value === "number" ? first.value : 0;
+              return `${name}: ${formatArea(value)}`;
+            },
+          },
+          grid: {
+            left: 8,
+            right: 12,
+            top: 18,
+            bottom: 8,
+            containLabel: true,
+          },
+          xAxis: {
+            type: "value",
+            axisLabel: {
+              formatter: (v: unknown) => {
+                const n = typeof v === "number" ? v : Number(v);
+                return Number.isFinite(n) ? formatNumber(n) : "";
+              },
+            },
+            splitLine: {
+              lineStyle: { color: "rgba(127,127,127,0.20)" },
+            },
+          },
+          yAxis: {
+            type: "category",
+            data: names,
+            inverse: true,
+            axisLabel: {
+              color: "rgba(255,255,255,0.88)",
+              width: 140,
+              overflow: "truncate",
+            },
+          },
+          series: [
+            {
+              type: "bar",
+              data: areas,
+              itemStyle: {
+                color: "#fbbf24",
+                opacity: 0.9,
+              },
+              barMaxWidth: 18,
+            },
+          ],
+        },
+        { notMerge: true },
+      );
+
+      barAreaChartRef.current.resize();
+    }
+
+    updateBarAreaChart();
+
+    return () => {
+      disposed = true;
+    };
+  }, [barAreaRows, isLoading]);
+
   function updateFilter(key: keyof Filters, value: string) {
     setFilters((prev) => ({ ...prev, [key]: value }));
   }
@@ -508,6 +879,152 @@ export default function DashboardEChartsMap() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <div className="rounded-lg border border-foreground/10">
+          <div className="flex items-center justify-between gap-4 border-b border-foreground/10 px-4 py-2">
+            <div className="text-sm font-medium">Número de obras por município (top 25)</div>
+          </div>
+          {!isLoading && error ? (
+            <div className="px-4 pt-2 text-sm text-foreground/70">{error}</div>
+          ) : null}
+          <div className="px-4 pb-4">
+            <div className="h-[420px] w-full sm:h-[520px]" ref={barChartElRef} />
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-foreground/10">
+          <div className="flex items-center justify-between gap-4 border-b border-foreground/10 px-4 py-2">
+            <div className="text-sm font-medium">Metragem de obras por município (top 25)</div>
+          </div>
+          {!isLoading && error ? (
+            <div className="px-4 pt-2 text-sm text-foreground/70">{error}</div>
+          ) : null}
+          <div className="px-4 pb-4">
+            <div className="h-[420px] w-full sm:h-[520px]" ref={barAreaChartElRef} />
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6 rounded-lg border border-foreground/10">
+        <div className="flex items-center justify-between gap-4 border-b border-foreground/10 px-4 py-2">
+          <div className="text-sm font-medium">Obras por município</div>
+          <button
+            type="button"
+            onClick={downloadMunicipiosExcel}
+            disabled={isLoading || !mapData}
+            className={
+              isLoading || !mapData
+                ? "h-9 rounded-md border border-foreground/10 px-3 text-sm text-foreground/40"
+                : "h-9 rounded-md border border-foreground/20 px-3 text-sm"
+            }
+          >
+            Download Excel
+          </button>
+        </div>
+        {!isLoading && error ? (
+          <div className="px-4 pt-2 text-sm text-foreground/70">{error}</div>
+        ) : null}
+
+        <div className="px-4 pb-4 pt-2">
+          <div className="max-h-[480px] overflow-auto">
+            <table className="min-w-full text-sm">
+              <thead className="sticky top-0 z-10 bg-background text-foreground/70">
+                <tr className="border-b border-foreground/10">
+                  <th
+                    aria-sort={
+                      tableSort.key === "name"
+                        ? tableSort.dir === "asc"
+                          ? "ascending"
+                          : "descending"
+                        : "none"
+                    }
+                    className="whitespace-nowrap py-2 text-left font-medium"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleTableSort("name")}
+                      className="select-none hover:text-foreground"
+                    >
+                      Município{sortIndicator("name")}
+                    </button>
+                  </th>
+                  <th
+                    aria-sort={
+                      tableSort.key === "count"
+                        ? tableSort.dir === "asc"
+                          ? "ascending"
+                          : "descending"
+                        : "none"
+                    }
+                    className="whitespace-nowrap py-2 text-right font-medium"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleTableSort("count")}
+                      className="select-none hover:text-foreground"
+                    >
+                      Nº de obras{sortIndicator("count")}
+                    </button>
+                  </th>
+                  <th
+                    aria-sort={
+                      tableSort.key === "area_total"
+                        ? tableSort.dir === "asc"
+                          ? "ascending"
+                          : "descending"
+                        : "none"
+                    }
+                    className="whitespace-nowrap py-2 text-right font-medium"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleTableSort("area_total")}
+                      className="select-none hover:text-foreground"
+                    >
+                      Metragem{sortIndicator("area_total")}
+                    </button>
+                  </th>
+                  <th
+                    aria-sort={
+                      tableSort.key === "avg_area"
+                        ? tableSort.dir === "asc"
+                          ? "ascending"
+                          : "descending"
+                        : "none"
+                    }
+                    className="whitespace-nowrap py-2 text-right font-medium"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggleTableSort("avg_area")}
+                      className="select-none hover:text-foreground"
+                    >
+                      Metragem média por obra{sortIndicator("avg_area")}
+                    </button>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-foreground/10">
+                {tableRows.map((row) => (
+                  <tr key={row.name} className="h-9">
+                    <td className="h-9 pr-4 align-middle">{row.name}</td>
+                    <td className="h-9 text-right tabular-nums align-middle">
+                      {formatNumber(row.count)}
+                    </td>
+                    <td className="h-9 text-right tabular-nums align-middle">
+                      {formatArea(row.area_total)}
+                    </td>
+                    <td className="h-9 text-right tabular-nums align-middle">
+                      {row.count > 0 ? formatArea(row.area_total / row.count) : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>

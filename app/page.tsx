@@ -26,12 +26,12 @@ export default function Home() {
 
         <a
           href="#proxima"
-          className="absolute bottom-10 left-1/2 -translate-x-1/2 rounded-full p-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40"
+          className="absolute bottom-10 left-1/2 -translate-x-1/2 rounded-full p-3 text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40 before:pointer-events-none before:absolute before:inset-0 before:rounded-full before:border before:border-blue-500/70 before:animate-pulse before:transition-opacity before:duration-300 hover:before:border-blue-400/80 after:pointer-events-none after:absolute after:inset-0 after:rounded-full after:ring-2 after:ring-blue-400/30 after:opacity-0 hover:after:opacity-100 hover:after:animate-ping"
           aria-label="Role para baixo"
         >
           <span className="sr-only">Role para baixo</span>
           <svg
-            className="h-6 w-6 animate-bounce"
+            className="h-6 w-6"
             viewBox="0 0 24 24"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
@@ -54,9 +54,14 @@ export default function Home() {
             Dashboard
           </h2>
 
+          <p className="mt-5 text-zinc-400">
+            Dados atualizados semanalmente. Última atualização: 02/03/2026.
+          </p>
+
           <DashboardEChartsMap />
-          
+
         </div>
+
       </section>
     </main>
   );
