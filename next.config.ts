@@ -13,8 +13,14 @@ const nextConfig: NextConfig = {
     "/api/dashboard/map": [
       "./public/data/cno_explorer_sc.parquet",
       "./public/data/sc_municipios.geojson",
+      "./node_modules/@duckdb/node-api/**",
+      "./node_modules/@duckdb/node-bindings/**",
     ],
-    "/api/dashboard/metadata": ["./public/data/cno_explorer_sc.parquet"],
+    "/api/dashboard/metadata": [
+      "./public/data/cno_explorer_sc.parquet",
+      "./node_modules/@duckdb/node-api/**",
+      "./node_modules/@duckdb/node-bindings/**",
+    ],
   },
 };
 

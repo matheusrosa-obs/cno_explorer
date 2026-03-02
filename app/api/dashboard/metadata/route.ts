@@ -1,5 +1,6 @@
 import { CNO_PARQUET_PATH, SC_MUNICIPIOS_GEOJSON_URL } from "@/lib/cno-paths";
 import { quoteIdentifier } from "@/lib/cno-utils";
+import { configureDuckDbRuntimeEnv } from "@/lib/duckdb-runtime";
 import { ensureLocalFileFromPublicUrl } from "@/lib/server-public-files";
 
 export const runtime = "nodejs";
@@ -19,12 +20,7 @@ function asStringArray(value: unknown): string[] {
 
 export async function GET(request: Request) {
   try {
-    if (process.env.VERCEL) {
-      process.env.DUCKDB_TMPDIR ||= "/tmp";
-      process.env.TMPDIR ||= "/tmp";
-      process.env.TMP ||= "/tmp";
-      process.env.TEMP ||= "/tmp";
-    }
+    configureDuckDbRuntimeEnv();
 
     const parquetPath = await ensureLocalFileFromPublicUrl({
       request,

@@ -1,5 +1,6 @@
 import { CNO_PARQUET_PATH, SC_MUNICIPIOS_GEOJSON_PATH } from "@/lib/cno-paths";
 import { normalizeKey, quoteIdentifier } from "@/lib/cno-utils";
+import { configureDuckDbRuntimeEnv } from "@/lib/duckdb-runtime";
 import {
   ensureLocalFileFromPublicUrl,
   readTextFromPublicFile,
@@ -88,12 +89,7 @@ function buildWhere(filters: Filters, availableColumns: Set<string>) {
 
 export async function GET(request: Request) {
   try {
-    if (process.env.VERCEL) {
-      process.env.DUCKDB_TMPDIR ||= "/tmp";
-      process.env.TMPDIR ||= "/tmp";
-      process.env.TMP ||= "/tmp";
-      process.env.TEMP ||= "/tmp";
-    }
+    configureDuckDbRuntimeEnv();
     const url = new URL(request.url);
 
     const filters: Filters = {
