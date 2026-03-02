@@ -1,9 +1,6 @@
-import { createWriteStream } from "fs";
 import fs from "fs/promises";
 import os from "os";
 import path from "path";
-import { Readable } from "stream";
-import { pipeline } from "stream/promises";
 
 async function fileExists(filePath: string) {
   try {
@@ -54,12 +51,6 @@ export async function ensureLocalFileFromPublicUrl(options: {
     throw new Error(
       `Falha ao baixar o arquivo público (${options.publicUrlPath}). Status: ${res.status}`,
     );
-  }
-
-  if (res.body) {
-    const nodeStream = Readable.fromWeb(res.body as never);
-    await pipeline(nodeStream, createWriteStream(tmpPath));
-    return tmpPath;
   }
 
   const buffer = Buffer.from(await res.arrayBuffer());

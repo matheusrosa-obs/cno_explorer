@@ -166,7 +166,10 @@ export default function DashboardEChartsMap() {
         cache: "no-store",
       });
       if (!res.ok) {
-        throw new Error("Falha ao carregar metadados do dashboard.");
+        const maybeJson = await res
+          .json()
+          .catch(() => ({ error: "Falha ao carregar metadados do dashboard." }));
+        throw new Error(maybeJson?.error ?? "Falha ao carregar metadados do dashboard.");
       }
 
       const json = (await res.json()) as MetadataResponse;

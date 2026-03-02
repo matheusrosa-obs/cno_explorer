@@ -89,52 +89,60 @@ function buildWhere(filters: Filters, availableColumns: Set<string>) {
 }
 
 export async function GET(request: Request) {
-  const url = new URL(request.url);
-
-  const filters: Filters = {
-    ano_inicio: url.searchParams.get("ano_inicio") ?? undefined,
-    categoria: url.searchParams.get("categoria") ?? undefined,
-    destinacao: url.searchParams.get("destinacao") ?? undefined,
-    tipo_obra: url.searchParams.get("tipo_obra") ?? undefined,
-  };
-
-  const parquetPath = await ensureLocalFileFromPublicUrl({
-    request,
-    localPath: CNO_PARQUET_PATH,
-    publicUrlPath: "/data/cno_explorer_sc.parquet",
-    tmpFileName: "cno_explorer_sc.parquet",
-  });
-
-  const geojsonRaw = await readTextFromPublicFile({
-    request,
-    localPath: SC_MUNICIPIOS_GEOJSON_PATH,
-    publicUrlPath: "/data/sc_municipios.geojson",
-  });
-  const parsed = JSON.parse(geojsonRaw) as unknown;
-  const geojson: GeoJSON =
-    typeof parsed === "object" && parsed !== null ? (parsed as GeoJSON) : {};
-  const nameProperty = pickGeojsonNameProperty(geojson);
-
-  const features = Array.isArray(geojson.features)
-    ? geojson.features.filter(isGeoJSONFeature)
-    : [];
-  const nameMap = new Map<string, string>();
-
-  for (const f of features) {
-    const nameValue = f.properties?.[nameProperty];
-    if (typeof nameValue !== "string") continue;
-    const key = normalizeKey(nameValue);
-    if (!key) continue;
-    if (!nameMap.has(key)) nameMap.set(key, nameValue);
-  }
-
-  const connection = await DuckDBConnection.create();
-
   try {
-    const describeReader = await connection.runAndReadAll(
-      "describe select * from read_parquet($file)",
-      { file: parquetPath },
-    );
+    const url = new URL(request.url);
+
+    const filters: Filters = {
+      ano_inicio: url.searchParams.get("ano_inicio") ?? undefined,
+      categoria: url.searchParams.get("categoria") ?? undefined,
+      destinacao: url.searchParams.get("destinacao") ?? undefined,
+      tipo_obra: url.searchParams.get("tipo_obra") ?? undefined,
+    };
+
+    const parquetPath = await ensureLocalFileFromPublicUrl({
+      request,
+      localPath: CNO_PARQUET_PATH,
+      publicUrlPath: "/data/cno_explorer_sc.parquet",
+      tmpFileName: "cno_explorer_sc.parquet",
+    });
+
+    if (process.env.VERCEL) {
+      process.env.DUCKDB_TMPDIR ||= "/tmp";
+      process.env.TMPDIR ||= "/tmp";
+      process.env.TMP ||= "/tmp";
+      process.env.TEMP ||= "/tmp";
+    }
+
+    const geojsonRaw = await readTextFromPublicFile({
+      request,
+      localPath: SC_MUNICIPIOS_GEOJSON_PATH,
+      publicUrlPath: "/data/sc_municipios.geojson",
+    });
+    const parsed = JSON.parse(geojsonRaw) as unknown;
+    const geojson: GeoJSON =
+      typeof parsed === "object" && parsed !== null ? (parsed as GeoJSON) : {};
+    const nameProperty = pickGeojsonNameProperty(geojson);
+
+    const features = Array.isArray(geojson.features)
+      ? geojson.features.filter(isGeoJSONFeature)
+      : [];
+    const nameMap = new Map<string, string>();
+
+    for (const f of features) {
+      const nameValue = f.properties?.[nameProperty];
+      if (typeof nameValue !== "string") continue;
+      const key = normalizeKey(nameValue);
+      if (!key) continue;
+      if (!nameMap.has(key)) nameMap.set(key, nameValue);
+    }
+
+    const connection = await DuckDBConnection.create();
+
+    try {
+      const describeReader = await connection.runAndReadAll(
+        "describe select * from read_parquet($file)",
+        { file: parquetPath },
+      );
     const describeRows = describeReader.getRowObjectsJson() as Array<{
       column_name: string;
     }>;
@@ -228,15 +236,28 @@ export async function GET(request: Request) {
       area_total: v.area_total,
     }));
 
-    return Response.json({
-      nameProperty,
-      data,
-      totals: {
-        total_obras: Number(totalsRow.total_obras),
-        total_area_total: Number(totalsRow.total_area_total),
+      return Response.json({
+        nameProperty,
+        data,
+        totals: {
+          total_obras: Number(totalsRow.total_obras),
+          total_area_total: Number(totalsRow.total_area_total),
+        },
+      });
+    } finally {
+      connection.closeSync();
+    }
+
+  } catch (e) {
+    console.error("/api/dashboard/map failed", e);
+    return Response.json(
+      {
+        error:
+          e instanceof Error
+            ? e.message
+            : "Erro interno ao processar dados do dashboard.",
       },
-    });
-  } finally {
-    connection.closeSync();
+      { status: 500 },
+    );
   }
 }

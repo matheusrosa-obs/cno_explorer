@@ -20,20 +20,28 @@ function asStringArray(value: unknown): string[] {
 }
 
 export async function GET(request: Request) {
-  const parquetPath = await ensureLocalFileFromPublicUrl({
-    request,
-    localPath: CNO_PARQUET_PATH,
-    publicUrlPath: "/data/cno_explorer_sc.parquet",
-    tmpFileName: "cno_explorer_sc.parquet",
-  });
-
-  const connection = await DuckDBConnection.create();
-
   try {
-    const describeReader = await connection.runAndReadAll(
-      "describe select * from read_parquet($file)",
-      { file: parquetPath },
-    );
+    const parquetPath = await ensureLocalFileFromPublicUrl({
+      request,
+      localPath: CNO_PARQUET_PATH,
+      publicUrlPath: "/data/cno_explorer_sc.parquet",
+      tmpFileName: "cno_explorer_sc.parquet",
+    });
+
+    if (process.env.VERCEL) {
+      process.env.DUCKDB_TMPDIR ||= "/tmp";
+      process.env.TMPDIR ||= "/tmp";
+      process.env.TMP ||= "/tmp";
+      process.env.TEMP ||= "/tmp";
+    }
+
+    const connection = await DuckDBConnection.create();
+
+    try {
+      const describeReader = await connection.runAndReadAll(
+        "describe select * from read_parquet($file)",
+        { file: parquetPath },
+      );
 
     const describeRows = describeReader.getRowObjectsJson() as Array<{
       column_name: string;
@@ -75,16 +83,28 @@ export async function GET(request: Request) {
         .filter((v): v is string => Boolean(v));
     }
 
-    return Response.json({
-      geojsonUrl: SC_MUNICIPIOS_GEOJSON_URL,
-      filters: {
-        ano_inicio: asStringArray(values.ano_inicio),
-        categoria: asStringArray(values.categoria),
-        destinacao: asStringArray(values.destinacao),
-        tipo_obra: asStringArray(values.tipo_obra),
+      return Response.json({
+        geojsonUrl: SC_MUNICIPIOS_GEOJSON_URL,
+        filters: {
+          ano_inicio: asStringArray(values.ano_inicio),
+          categoria: asStringArray(values.categoria),
+          destinacao: asStringArray(values.destinacao),
+          tipo_obra: asStringArray(values.tipo_obra),
+        },
+      });
+    } finally {
+      connection.closeSync();
+    }
+  } catch (e) {
+    console.error("/api/dashboard/metadata failed", e);
+    return Response.json(
+      {
+        error:
+          e instanceof Error
+            ? e.message
+            : "Erro interno ao carregar metadados do dashboard.",
       },
-    });
-  } finally {
-    connection.closeSync();
+      { status: 500 },
+    );
   }
 }
