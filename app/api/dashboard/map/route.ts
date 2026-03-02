@@ -1,5 +1,3 @@
-import { DuckDBConnection } from "@duckdb/node-api";
-
 import { CNO_PARQUET_PATH, SC_MUNICIPIOS_GEOJSON_PATH } from "@/lib/cno-paths";
 import { normalizeKey, quoteIdentifier } from "@/lib/cno-utils";
 import {
@@ -90,6 +88,12 @@ function buildWhere(filters: Filters, availableColumns: Set<string>) {
 
 export async function GET(request: Request) {
   try {
+    if (process.env.VERCEL) {
+      process.env.DUCKDB_TMPDIR ||= "/tmp";
+      process.env.TMPDIR ||= "/tmp";
+      process.env.TMP ||= "/tmp";
+      process.env.TEMP ||= "/tmp";
+    }
     const url = new URL(request.url);
 
     const filters: Filters = {
@@ -105,13 +109,6 @@ export async function GET(request: Request) {
       publicUrlPath: "/data/cno_explorer_sc.parquet",
       tmpFileName: "cno_explorer_sc.parquet",
     });
-
-    if (process.env.VERCEL) {
-      process.env.DUCKDB_TMPDIR ||= "/tmp";
-      process.env.TMPDIR ||= "/tmp";
-      process.env.TMP ||= "/tmp";
-      process.env.TEMP ||= "/tmp";
-    }
 
     const geojsonRaw = await readTextFromPublicFile({
       request,
@@ -136,6 +133,7 @@ export async function GET(request: Request) {
       if (!nameMap.has(key)) nameMap.set(key, nameValue);
     }
 
+    const { DuckDBConnection } = await import("@duckdb/node-api");
     const connection = await DuckDBConnection.create();
 
     try {
@@ -143,19 +141,19 @@ export async function GET(request: Request) {
         "describe select * from read_parquet($file)",
         { file: parquetPath },
       );
-    const describeRows = describeReader.getRowObjectsJson() as Array<{
-      column_name: string;
-    }>;
-    const availableColumns = new Set(describeRows.map((r) => r.column_name));
+      const describeRows = describeReader.getRowObjectsJson() as Array<{
+        column_name: string;
+      }>;
+      const availableColumns = new Set(describeRows.map((r) => r.column_name));
 
-    const municipioCandidates = [
-      "municipio",
-      "nome_municipio",
-      "municipio_nome",
-      "nm_municipio",
-      "mun_nome",
-      "cidade",
-    ];
+      const municipioCandidates = [
+        "municipio",
+        "nome_municipio",
+        "municipio_nome",
+        "nm_municipio",
+        "mun_nome",
+        "cidade",
+      ];
 
     const municipioColumn = municipioCandidates.find((c) => availableColumns.has(c));
     if (!municipioColumn) {

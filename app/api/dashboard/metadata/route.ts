@@ -1,5 +1,3 @@
-import { DuckDBConnection } from "@duckdb/node-api";
-
 import { CNO_PARQUET_PATH, SC_MUNICIPIOS_GEOJSON_URL } from "@/lib/cno-paths";
 import { quoteIdentifier } from "@/lib/cno-utils";
 import { ensureLocalFileFromPublicUrl } from "@/lib/server-public-files";
@@ -21,13 +19,6 @@ function asStringArray(value: unknown): string[] {
 
 export async function GET(request: Request) {
   try {
-    const parquetPath = await ensureLocalFileFromPublicUrl({
-      request,
-      localPath: CNO_PARQUET_PATH,
-      publicUrlPath: "/data/cno_explorer_sc.parquet",
-      tmpFileName: "cno_explorer_sc.parquet",
-    });
-
     if (process.env.VERCEL) {
       process.env.DUCKDB_TMPDIR ||= "/tmp";
       process.env.TMPDIR ||= "/tmp";
@@ -35,6 +26,14 @@ export async function GET(request: Request) {
       process.env.TEMP ||= "/tmp";
     }
 
+    const parquetPath = await ensureLocalFileFromPublicUrl({
+      request,
+      localPath: CNO_PARQUET_PATH,
+      publicUrlPath: "/data/cno_explorer_sc.parquet",
+      tmpFileName: "cno_explorer_sc.parquet",
+    });
+
+    const { DuckDBConnection } = await import("@duckdb/node-api");
     const connection = await DuckDBConnection.create();
 
     try {
