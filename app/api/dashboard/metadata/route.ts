@@ -2,6 +2,7 @@ import { DuckDBConnection } from "@duckdb/node-api";
 
 import { CNO_PARQUET_PATH, SC_MUNICIPIOS_GEOJSON_URL } from "@/lib/cno-paths";
 import { quoteIdentifier } from "@/lib/cno-utils";
+import { ensureLocalFileFromPublicUrl } from "@/lib/server-public-files";
 
 export const runtime = "nodejs";
 
@@ -18,13 +19,20 @@ function asStringArray(value: unknown): string[] {
   return Array.isArray(value) ? (value as string[]) : [];
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const parquetPath = await ensureLocalFileFromPublicUrl({
+    request,
+    localPath: CNO_PARQUET_PATH,
+    publicUrlPath: "/data/cno_explorer_sc.parquet",
+    tmpFileName: "cno_explorer_sc.parquet",
+  });
+
   const connection = await DuckDBConnection.create();
 
   try {
     const describeReader = await connection.runAndReadAll(
       "describe select * from read_parquet($file)",
-      { file: CNO_PARQUET_PATH },
+      { file: parquetPath },
     );
 
     const describeRows = describeReader.getRowObjectsJson() as Array<{
@@ -58,7 +66,7 @@ export async function GET() {
              where ${col} is not null and cast(${col} as varchar) <> ''
              order by 1 asc
              limit 500`,
-        { file: CNO_PARQUET_PATH },
+        { file: parquetPath },
       );
 
       const rows = reader.getRowObjectsJson() as Array<{ v: string | null }>;

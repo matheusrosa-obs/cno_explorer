@@ -1,9 +1,11 @@
-import fs from "fs/promises";
-
 import { DuckDBConnection } from "@duckdb/node-api";
 
 import { CNO_PARQUET_PATH, SC_MUNICIPIOS_GEOJSON_PATH } from "@/lib/cno-paths";
 import { normalizeKey, quoteIdentifier } from "@/lib/cno-utils";
+import {
+  ensureLocalFileFromPublicUrl,
+  readTextFromPublicFile,
+} from "@/lib/server-public-files";
 
 export const runtime = "nodejs";
 
@@ -61,7 +63,7 @@ function pickGeojsonNameProperty(geojson: GeoJSON) {
 
 function buildWhere(filters: Filters, availableColumns: Set<string>) {
   const clauses: string[] = [];
-  const params: Record<string, string> = { file: CNO_PARQUET_PATH };
+  const params: Record<string, string> = {};
 
   const entries: Array<[keyof Filters, string]> = [
     ["ano_inicio", "ano_inicio"],
@@ -96,7 +98,18 @@ export async function GET(request: Request) {
     tipo_obra: url.searchParams.get("tipo_obra") ?? undefined,
   };
 
-  const geojsonRaw = await fs.readFile(SC_MUNICIPIOS_GEOJSON_PATH, "utf-8");
+  const parquetPath = await ensureLocalFileFromPublicUrl({
+    request,
+    localPath: CNO_PARQUET_PATH,
+    publicUrlPath: "/data/cno_explorer_sc.parquet",
+    tmpFileName: "cno_explorer_sc.parquet",
+  });
+
+  const geojsonRaw = await readTextFromPublicFile({
+    request,
+    localPath: SC_MUNICIPIOS_GEOJSON_PATH,
+    publicUrlPath: "/data/sc_municipios.geojson",
+  });
   const parsed = JSON.parse(geojsonRaw) as unknown;
   const geojson: GeoJSON =
     typeof parsed === "object" && parsed !== null ? (parsed as GeoJSON) : {};
@@ -120,7 +133,7 @@ export async function GET(request: Request) {
   try {
     const describeReader = await connection.runAndReadAll(
       "describe select * from read_parquet($file)",
-      { file: CNO_PARQUET_PATH },
+      { file: parquetPath },
     );
     const describeRows = describeReader.getRowObjectsJson() as Array<{
       column_name: string;
@@ -158,6 +171,7 @@ export async function GET(request: Request) {
     }
 
     const { whereSql, params } = buildWhere(filters, availableColumns);
+    params.file = parquetPath;
 
     const munCol = quoteIdentifier(municipioColumn);
     const areaCol = quoteIdentifier("area_total");
