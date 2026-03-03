@@ -13,8 +13,32 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Explorador do CNO",
-  description: "Explorador do CNO",
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL?.trim() || "http://localhost:3000",
+  ),
+  title: {
+    default: "Explorador do CNO",
+    template: "%s | Explorador do CNO",
+  },
+  description: "Dados do Cadastro Nacional de Obras para Santa Catarina.",
+  openGraph: {
+    type: "website",
+    title: "Explorador do CNO",
+    description: "Dados do Cadastro Nacional de Obras para Santa Catarina.",
+    url: "/",
+    images: [
+      {
+        url: "/logo_dark.png",
+        alt: "Logo do Explorador do CNO",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Explorador do CNO",
+    description: "Dados do Cadastro Nacional de Obras para Santa Catarina.",
+    images: ["/logo_dark.png"],
+  },
 };
 
 export default function RootLayout({
