@@ -16,7 +16,8 @@ export const metadata: Metadata = {
   title: "Explorador do CNO",
   description: "Explorador do CNO",
   icons: {
-    icon: "/logo_dark.png",
+    icon: [{ url: "/logo_dark.png", type: "image/png" }],
+    shortcut: [{ url: "/logo_dark.png", type: "image/png" }],
   },
 };
 
