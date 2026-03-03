@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "gen:favicon": "node scripts/generate-favicon.mjs"
   },
   "dependencies": {
     "@duckdb/node-api": "^1.4.4-r.2",
@@ -23,6 +24,8 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "png-to-ico": "^3.0.1",
+    "pngjs": "^7.0.0",
     "tailwindcss": "^4",
     "typescript": "5.9.3"
   }
