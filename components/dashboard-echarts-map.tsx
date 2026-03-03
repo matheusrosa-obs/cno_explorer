@@ -866,8 +866,8 @@ export default function DashboardEChartsMap() {
               onClick={() => setTab("obras")}
               className={
                 tab === "obras"
-                  ? "h-9 rounded-md border border-foreground/20 px-3 text-sm"
-                  : "h-9 rounded-md border border-foreground/10 px-3 text-sm text-foreground/70"
+                  ? "h-9 rounded-md border border-foreground/20 bg-foreground/5 px-3 text-sm text-foreground transition-colors duration-200 hover:bg-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 active:bg-foreground/15"
+                  : "h-9 rounded-md border border-foreground/10 px-3 text-sm text-foreground/70 transition-colors duration-200 hover:border-foreground/20 hover:bg-foreground/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 active:bg-foreground/10"
               }
             >
               Número de obras
@@ -877,8 +877,8 @@ export default function DashboardEChartsMap() {
               onClick={() => setTab("metragem")}
               className={
                 tab === "metragem"
-                  ? "h-9 rounded-md border border-foreground/20 px-3 text-sm"
-                  : "h-9 rounded-md border border-foreground/10 px-3 text-sm text-foreground/70"
+                  ? "h-9 rounded-md border border-foreground/20 bg-foreground/5 px-3 text-sm text-foreground transition-colors duration-200 hover:bg-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 active:bg-foreground/15"
+                  : "h-9 rounded-md border border-foreground/10 px-3 text-sm text-foreground/70 transition-colors duration-200 hover:border-foreground/20 hover:bg-foreground/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 active:bg-foreground/10"
               }
             >
               Metragem de obras
@@ -945,8 +945,8 @@ export default function DashboardEChartsMap() {
             disabled={isLoading || !mapData}
             className={
               isLoading || !mapData
-                ? "h-9 rounded-md border border-foreground/10 px-3 text-sm text-foreground/40"
-                : "h-9 rounded-md border border-foreground/20 px-3 text-sm"
+                ? "h-9 cursor-not-allowed rounded-md border border-foreground/10 px-3 text-sm text-foreground/40 transition-colors duration-200"
+                : "h-9 rounded-md border border-foreground/20 bg-foreground/5 px-3 text-sm text-foreground transition-colors duration-200 hover:border-foreground/30 hover:bg-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 active:bg-foreground/15"
             }
           >
             Download Excel

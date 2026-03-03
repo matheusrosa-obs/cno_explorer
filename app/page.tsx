@@ -51,17 +51,25 @@ export default function Home() {
       <section id="proxima" className="min-h-screen px-6 py-16">
         <div className="mx-auto w-full max-w-5xl">
           <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">
-            Dashboard
+        Dashboard
           </h2>
 
           <p className="mt-5 text-zinc-400">
-            Dados atualizados semanalmente. Última atualização: 02/03/2026.
+        Dados atualizados semanalmente. Última atualização: 02/03/2026.
           </p>
 
           <DashboardEChartsMap />
-
         </div>
 
+        <div className="relative mx-auto mb-6 h-32 w-32 sm:h-20 sm:w-60">
+          <Image
+        src="/logo_dark.png"
+        alt="Logo do Explorador do CNO"
+        fill
+        priority
+        className="object-contain"
+          />
+        </div>
       </section>
     </main>
   );
