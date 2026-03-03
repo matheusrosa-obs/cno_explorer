@@ -114,6 +114,7 @@ export async function GET(request: Request) {
       localPath: SC_MUNICIPIOS_GEOJSON_PATH,
       publicUrlPath: "/data/sc_municipios.geojson",
     });
+
     const parsed = JSON.parse(geojsonRaw) as unknown;
     const geojson: GeoJSON =
       typeof parsed === "object" && parsed !== null ? (parsed as GeoJSON) : {};
@@ -154,105 +155,110 @@ export async function GET(request: Request) {
         "cidade",
       ];
 
-    const municipioColumn = municipioCandidates.find((c) => availableColumns.has(c));
-    if (!municipioColumn) {
-      return Response.json(
-        {
-          error:
-            "Não foi possível localizar a coluna de município no Parquet (esperado algo como 'municipio' ou 'nome_municipio').",
-        },
-        { status: 400 },
+      const municipioColumn = municipioCandidates.find((c) =>
+        availableColumns.has(c),
       );
-    }
+      if (!municipioColumn) {
+        return Response.json(
+          {
+            error:
+              "Não foi possível localizar a coluna de município no Parquet (esperado algo como 'municipio' ou 'nome_municipio').",
+          },
+          { status: 400 },
+        );
+      }
 
-    if (!availableColumns.has("area_total")) {
-      return Response.json(
-        {
-          error:
-            "Não foi possível localizar a coluna 'area_total' no Parquet para calcular a metragem.",
-        },
-        { status: 400 },
+      if (!availableColumns.has("ano_inicio")) {
+        return Response.json(
+          {
+            error:
+              "Não foi possível localizar a coluna 'ano_inicio' no Parquet para montar a tabela por ano.",
+          },
+          { status: 400 },
+        );
+      }
+
+      if (!availableColumns.has("area_total")) {
+        return Response.json(
+          {
+            error:
+              "Não foi possível localizar a coluna 'area_total' no Parquet para calcular a metragem.",
+          },
+          { status: 400 },
+        );
+      }
+
+      const { whereSql, params } = buildWhere(filters, availableColumns);
+      params.file = parquetPath;
+
+      const munCol = quoteIdentifier(municipioColumn);
+      const anoCol = quoteIdentifier("ano_inicio");
+      const areaCol = quoteIdentifier("area_total");
+
+      const reader = await connection.runAndReadAll(
+        `select
+           cast(${munCol} as varchar) as municipio,
+           cast(${anoCol} as varchar) as ano_inicio,
+           count(*)::bigint as count,
+           sum(coalesce(try_cast(${areaCol} as double), 0))::double as area_total
+         from read_parquet($file)
+         ${whereSql}
+         group by 1, 2`,
+        params,
       );
-    }
 
-    const { whereSql, params } = buildWhere(filters, availableColumns);
-    params.file = parquetPath;
+      const rows = reader.getRowObjectsJson() as Array<{
+        municipio: string | null;
+        ano_inicio: string | null;
+        count: string | number;
+        area_total: string | number;
+      }>;
 
-    const munCol = quoteIdentifier(municipioColumn);
-    const areaCol = quoteIdentifier("area_total");
+      const aggregated = new Map<
+        string,
+        { name: string; ano_inicio: string; count: number; area_total: number }
+      >();
 
-    const totalsReader = await connection.runAndReadAll(
-      `select
-         count(*)::bigint as total_obras,
-         sum(coalesce(try_cast(${areaCol} as double), 0))::double as total_area_total
-       from read_parquet($file)
-       ${whereSql}`,
-      params,
-    );
+      for (const r of rows) {
+        if (!r.municipio) continue;
+        if (typeof r.ano_inicio !== "string" || !r.ano_inicio.trim()) continue;
 
-    const totalsRow = (totalsReader.getRowObjectsJson() as Array<{
-      total_obras: string | number;
-      total_area_total: string | number;
-    }>)[0] ?? { total_obras: 0, total_area_total: 0 };
+        const munKey = normalizeKey(r.municipio);
+        const canonicalName = nameMap.get(munKey);
+        if (!canonicalName) continue;
 
-    const reader = await connection.runAndReadAll(
-      `select
-         cast(${munCol} as varchar) as municipio,
-         count(*)::bigint as count,
-         sum(coalesce(try_cast(${areaCol} as double), 0))::double as area_total
-       from read_parquet($file)
-       ${whereSql}
-       group by 1`,
-      params,
-    );
+        const ano = String(r.ano_inicio);
+        const key = `${canonicalName}||${ano}`;
 
-    const rows = reader.getRowObjectsJson() as Array<{
-      municipio: string | null;
-      count: string | number;
-      area_total: string | number;
-    }>;
+        const prev = aggregated.get(key);
+        if (!prev) {
+          aggregated.set(key, {
+            name: canonicalName,
+            ano_inicio: ano,
+            count: Number(r.count),
+            area_total: Number(r.area_total),
+          });
+          continue;
+        }
 
-    const aggregated = new Map<string, { count: number; area_total: number }>();
+        prev.count += Number(r.count);
+        prev.area_total += Number(r.area_total);
+      }
 
-    for (const r of rows) {
-      if (!r.municipio) continue;
-      const key = normalizeKey(r.municipio);
-      const canonicalName = nameMap.get(key);
-      if (!canonicalName) continue;
+      const data = Array.from(aggregated.values());
 
-      const prev = aggregated.get(canonicalName) ?? { count: 0, area_total: 0 };
-      aggregated.set(canonicalName, {
-        count: prev.count + Number(r.count),
-        area_total: prev.area_total + Number(r.area_total),
-      });
-    }
-
-    const data = Array.from(aggregated.entries()).map(([name, v]) => ({
-      name,
-      count: v.count,
-      area_total: v.area_total,
-    }));
-
-      return Response.json({
-        nameProperty,
-        data,
-        totals: {
-          total_obras: Number(totalsRow.total_obras),
-          total_area_total: Number(totalsRow.total_area_total),
-        },
-      });
+      return Response.json({ data });
     } finally {
       connection.closeSync();
     }
-
   } catch (e) {
-    console.error("/api/dashboard/map failed", e);
+    console.error("/api/dashboard/municipios failed", e);
     return Response.json(
       {
         error:
           e instanceof Error
             ? e.message
-            : "Erro interno ao processar dados do dashboard.",
+            : "Erro interno ao processar tabela de municípios.",
       },
       { status: 500 },
     );
