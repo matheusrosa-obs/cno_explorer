@@ -591,12 +591,6 @@ export default function DashboardEChartsMap() {
         barChartRef.current = echarts.init(el);
       }
 
-      if (isLoading) {
-        barChartRef.current.showLoading?.("default");
-      } else {
-        barChartRef.current.hideLoading?.();
-      }
-
       const topN = 25;
       const rows = barChartRows.slice(0, topN);
       const names = rows.map((r) => r.name);
@@ -604,6 +598,8 @@ export default function DashboardEChartsMap() {
 
       barChartRef.current.setOption(
         {
+          animationDurationUpdate: 350,
+          animationEasingUpdate: "cubicOut",
           tooltip: {
             trigger: "axis",
             axisPointer: { type: "shadow" },
@@ -656,7 +652,7 @@ export default function DashboardEChartsMap() {
             },
           ],
         },
-        { notMerge: true },
+        { notMerge: false, lazyUpdate: true },
       );
 
       barChartRef.current.resize();
@@ -667,7 +663,23 @@ export default function DashboardEChartsMap() {
     return () => {
       disposed = true;
     };
-  }, [barChartRows, isLoading]);
+  }, [barChartRows]);
+
+  useEffect(() => {
+    // Keep chart visible during refresh; use a transparent loading overlay.
+    if (!barChartRef.current) return;
+
+    if (isLoading) {
+      barChartRef.current.showLoading?.("default", {
+        text: "",
+        maskColor: "rgba(0,0,0,0)",
+        color: "#38bdf8",
+        lineWidth: 2,
+      });
+    } else {
+      barChartRef.current.hideLoading?.();
+    }
+  }, [isLoading]);
 
   useEffect(() => {
     let disposed = false;
@@ -683,12 +695,6 @@ export default function DashboardEChartsMap() {
         barAreaChartRef.current = echarts.init(el);
       }
 
-      if (isLoading) {
-        barAreaChartRef.current.showLoading?.("default");
-      } else {
-        barAreaChartRef.current.hideLoading?.();
-      }
-
       const topN = 25;
       const rows = barAreaRows.slice(0, topN);
       const names = rows.map((r) => r.name);
@@ -696,6 +702,8 @@ export default function DashboardEChartsMap() {
 
       barAreaChartRef.current.setOption(
         {
+          animationDurationUpdate: 350,
+          animationEasingUpdate: "cubicOut",
           tooltip: {
             trigger: "axis",
             axisPointer: { type: "shadow" },
@@ -748,7 +756,7 @@ export default function DashboardEChartsMap() {
             },
           ],
         },
-        { notMerge: true },
+        { notMerge: false, lazyUpdate: true },
       );
 
       barAreaChartRef.current.resize();
@@ -759,7 +767,23 @@ export default function DashboardEChartsMap() {
     return () => {
       disposed = true;
     };
-  }, [barAreaRows, isLoading]);
+  }, [barAreaRows]);
+
+  useEffect(() => {
+    // Keep chart visible during refresh; use a transparent loading overlay.
+    if (!barAreaChartRef.current) return;
+
+    if (isLoading) {
+      barAreaChartRef.current.showLoading?.("default", {
+        text: "",
+        maskColor: "rgba(0,0,0,0)",
+        color: "#fbbf24",
+        lineWidth: 2,
+      });
+    } else {
+      barAreaChartRef.current.hideLoading?.();
+    }
+  }, [isLoading]);
 
   function updateFilter(key: keyof Filters, value: string) {
     setFilters((prev) => ({ ...prev, [key]: value }));
