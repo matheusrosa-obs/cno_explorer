@@ -949,7 +949,7 @@ export default function DashboardEChartsMap() {
                 : "h-9 rounded-md border border-foreground/20 bg-foreground/5 px-3 text-sm text-foreground transition-colors duration-200 hover:border-foreground/30 hover:bg-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 active:bg-foreground/15"
             }
           >
-            Download Excel
+            Download
           </button>
         </div>
         {!isLoading && error ? (
