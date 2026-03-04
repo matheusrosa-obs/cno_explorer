@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 
 import DashboardEChartsMap from "@/components/dashboard-echarts-map";
 
@@ -6,7 +7,13 @@ export default function Home() {
   return (
     <main className="bg-background text-foreground font-sans">
       <section className="relative flex min-h-screen flex-col items-center justify-center px-6">
-        <div className="relative mb-6 h-32 w-32 sm:h-20 sm:w-60">
+        <Link
+          href="https://observatorio.fiesc.com.br/"
+          target="_blank"
+          rel="noreferrer"
+          className="relative mb-6 block h-32 w-32 sm:h-20 sm:w-60"
+          aria-label="Abrir Observatório FIESC"
+        >
           <Image
             src="/logo_dark.png"
             alt="Logo do Explorador do CNO"
@@ -14,7 +21,7 @@ export default function Home() {
             priority
             className="object-contain"
           />
-        </div>
+        </Link>
         
         <h1 className="text-center text-3xl font-semibold tracking-tight sm:text-5xl">
           Explorador do CNO

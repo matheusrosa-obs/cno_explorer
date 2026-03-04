@@ -3,6 +3,7 @@
 import type { EChartsType } from "echarts";
 
 import Image from "next/image";
+import Link from "next/link";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -1239,7 +1240,13 @@ export default function DashboardEChartsMap() {
         </div>
 
         <div className="mt-6 flex justify-center">
-          <div className="relative h-16 w-40 sm:h-20 sm:w-60">
+          <Link
+            href="https://observatorio.fiesc.com.br/"
+            target="_blank"
+            rel="noreferrer"
+            className="relative block h-16 w-40 sm:h-20 sm:w-60"
+            aria-label="Abrir Observatório FIESC"
+          >
             <Image
               src="/logo_dark.png"
               alt="Logo do Explorador do CNO"
@@ -1247,7 +1254,7 @@ export default function DashboardEChartsMap() {
               priority
               className="object-contain"
             />
-          </div>
+          </Link>
         </div>
       </aside>
 
